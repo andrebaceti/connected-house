@@ -1,11 +1,63 @@
 version: "3.3"
 services:
+  ###############
+  #Load Balancer#
+  postgres-kong-database:
+    image: postgres:11
+    restart: always
+    ports:
+      - "9955:5432"
+    environment:
+      - POSTGRES_PASSWORD=kong
+      - POSTGRES_USER=kong
+      - POSTGRES_DB=kong
+
+  load-balancer:
+    image: gcr.io/repositorio-geral-170012/gateway-loadbalancer-kong:0.1
+    depends_on:
+      - postgres-kong-database
+    ports:
+      - "8080:8000"
+      - "8001:8001"
+      - "8443:8443"
+      - "7946:7946"
+      - "7946:7946/udp"
+  ###############
+
+  ##########
+  #RabbitMQ#
   rabbitmq-main:
-    image: andrebaceti/rabbitmq-mqtt:0.1
+    image: rabbitmq:3-management
     ports:
       - 5672:5672
       - 15672:15672
-      - 1883:1883
     environment:
-      - RABBITMQ_DEFAULT_USER=$RABBITMQ_DEFAULT_USER
-      - RABBITMQ_DEFAULT_PASS=$RABBITMQ_DEFAULT_PASS
+      - RABBITMQ_DEFAULT_USER=pumpwood
+      - RABBITMQ_DEFAULT_PASS=pumpwood
+  ##########
+
+  ###################
+  #Auth Microservice#
+  test-db-pumpwood-auth:
+    image: postgres:12
+    shm_size: 512mb
+    environment:
+      - POSTGRES_PASSWORD=pumpwood
+      - POSTGRES_USER=pumpwood
+    ports:
+      - 7000:5432
+    volumes:
+      - test-db-pumpwood-auth-conncected:/var/lib/postgresql/data
+
+  pumpwood-auth-app:
+    image: gcr.io/repositorio-geral-170012/pumpwood-auth-app:$PUMPWOOD_AUTH_APP
+    environment:
+      - TEST_MEDIA=/test_media
+      - TEST_MEDIA_BK=/test_media_bk
+
+  pumpwood-auth-admin-static:
+    image: gcr.io/repositorio-geral-170012/pumpwood-auth-static:$PUMPWOOD_AUTH_STATIC
+
+volumes:
+  test-db-pumpwood-auth-conncected:
+    external: true
